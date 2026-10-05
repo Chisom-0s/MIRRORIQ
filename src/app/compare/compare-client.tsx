@@ -38,6 +38,25 @@ export default function CompareClient() {
 
   const [selectedWinnerId, setSelectedWinnerId] = useState<string>("primary");
 
+  const handleSelectWinner = async (itemId: string) => {
+    setSelectedWinnerId(itemId);
+    if (store.sessionId) {
+      try {
+        await fetch("/api/session/comparison", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            sessionId: store.sessionId,
+            scoreA: primaryProduct.confidenceScore,
+            scoreB: alternatives[0]?.confidenceScore ?? 85,
+          }),
+        });
+      } catch (e) {
+        console.warn("[compare] Supabase comparison persistence note:", e);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!store.decisionResult) {
       store.loadSampleAnalysis();
@@ -155,7 +174,7 @@ export default function CompareClient() {
               <div className="p-4 bg-neutral-100/60 border-t border-neutral-100">
                 <button
                   type="button"
-                  onClick={() => setSelectedWinnerId(item.id)}
+                  onClick={() => handleSelectWinner(item.id)}
                   className={`w-full py-2.5 px-4 rounded-xl text-xs font-semibold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${
                     isSelectedWinner
                       ? "bg-neutral-950 text-white shadow-md"

@@ -1,7 +1,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Upload,
@@ -20,7 +20,17 @@ import {
   type DecisionResult,
 } from "@/lib/store";
 
-const PRESET_PRODUCTS = [
+interface ProductItem {
+  id?: string;
+  name: string;
+  brand: string;
+  category: string;
+  price: string;
+  color?: string | null;
+  url: string;
+}
+
+const PRESET_PRODUCTS: ProductItem[] = [
   {
     name: "Sculpted Italian Wool Trench Coat",
     brand: "L'Atelier Studio",
@@ -51,6 +61,7 @@ export default function AnalyzeClient() {
   const router = useRouter();
   const store = useAnalysisStore();
 
+  const [productsList, setProductsList] = useState<ProductItem[]>(PRESET_PRODUCTS);
   const [currentStep, setCurrentStep] = useState<1 | 2 | 3>(1);
   const [selfieFile, setSelfieFile] = useState<File | null>(null);
   const [selfiePreview, setSelfiePreview] = useState<string | null>(store.selfieUrl);
@@ -63,6 +74,40 @@ export default function AnalyzeClient() {
     store.productCategory || PRESET_PRODUCTS[0].category,
   );
   const [productPrice, setProductPrice] = useState(store.productPrice || PRESET_PRODUCTS[0].price);
+
+  useEffect(() => {
+    async function loadProducts() {
+      try {
+        const res = await fetch("/api/products");
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.products) && json.products.length > 0) {
+            const mapped: ProductItem[] = json.products.map((p: {
+              id: string;
+              name: string;
+              brand: string;
+              category: string;
+              price: string;
+              color?: string | null;
+              image_url: string;
+            }) => ({
+              id: p.id,
+              name: p.name,
+              brand: p.brand,
+              category: p.category,
+              price: p.price,
+              color: p.color,
+              url: p.image_url,
+            }));
+            setProductsList(mapped);
+          }
+        }
+      } catch (err) {
+        console.warn("[analyze] Products fetch fallback:", err);
+      }
+    }
+    loadProducts();
+  }, []);
 
   const [, setIsProcessing] = useState(false);
   const [loadingPhase, setLoadingPhase] = useState<
@@ -107,14 +152,21 @@ export default function AnalyzeClient() {
     }
   }
 
-  function selectPresetProduct(preset: (typeof PRESET_PRODUCTS)[0]) {
+  function selectPresetProduct(preset: ProductItem) {
     setProductFile(null);
     setProductPreview(preset.url);
     setProductName(preset.name);
     setProductBrand(preset.brand);
     setProductCategory(preset.category);
     setProductPrice(preset.price);
-    store.setProduct(preset);
+    store.setProduct({
+      url: preset.url,
+      name: preset.name,
+      brand: preset.brand,
+      category: preset.category,
+      price: preset.price,
+      color: preset.color || undefined,
+    });
     setErrorMessage(null);
   }
 
@@ -140,8 +192,28 @@ export default function AnalyzeClient() {
       setLoadingPhase("preparing_profile");
       store.setAnalysisStage("preparing_profile");
 
+      // Create persistent session in Supabase
+      let sessionId: string | null = null;
+      try {
+        const sessionRes = await fetch("/api/session/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            selfieUrl: selfiePreview,
+          }),
+        });
+        const sessionJson = await sessionRes.json();
+        if (sessionRes.ok && sessionJson.session?.id) {
+          sessionId = sessionJson.session.id;
+          store.setSessionId(sessionId);
+        }
+      } catch (e) {
+        console.warn("[analyze] Supabase session initialization fallback:", e);
+      }
+
       let uploadedSelfieFileId: string | null = null;
       let skinResult = null;
+      let activeTaskId: string | null = null;
 
       // If user provided a real File, upload it to YouCam
       if (selfieFile) {
@@ -171,6 +243,7 @@ export default function AnalyzeClient() {
 
           const taskJson = await taskRes.json();
           if (taskRes.ok && taskJson.taskId) {
+            activeTaskId = taskJson.taskId;
             // Poll for completion (up to 5 attempts)
             for (let i = 0; i < 5; i++) {
               await new Promise((r) => setTimeout(r, 1200));
@@ -211,6 +284,43 @@ export default function AnalyzeClient() {
         headline: `High Purchase Confidence — ${productName}`,
         summary: `The silhouette and tonal palette of the ${productName} by ${productBrand} align with your visual profile with exceptional harmony.`,
       };
+
+      // Persist results to Supabase if session was created
+      if (sessionId) {
+        try {
+          await fetch("/api/session/save-result", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              sessionId,
+              tryOn: {
+                sourceImageUrl: selfiePreview,
+                resultImageUrl: selfiePreview,
+                youcamTaskId: activeTaskId,
+                status: "success",
+              },
+              skinAnalysis: skinResult
+                ? {
+                    skinType: "combination",
+                    overallScore: 92,
+                    analysisData: skinResult as Record<string, unknown>,
+                  }
+                : undefined,
+              decision: {
+                confidenceScore: calculatedDecision.confidenceScore,
+                visualScore: 94,
+                occasionScore: 90,
+                preferenceScore: 89,
+                versatilityScore: 92,
+                recommendation: calculatedDecision.recommendation,
+                explanation: calculatedDecision.summary,
+              },
+            }),
+          });
+        } catch (e) {
+          console.warn("[analyze] Supabase persistence async note:", e);
+        }
+      }
 
       store.setAnalysisOutputs({
         tryOn: { imageUrl: selfiePreview },
@@ -373,7 +483,7 @@ export default function AnalyzeClient() {
               Select Curated Editorial Item
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {PRESET_PRODUCTS.map((preset) => {
+              {productsList.map((preset) => {
                 const isSelected = productName === preset.name;
                 return (
                   <button

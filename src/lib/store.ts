@@ -55,6 +55,10 @@ export interface AnalysisState {
     | "error";
   errorMessage: string | null;
 
+  // Database session
+  sessionId: string | null;
+  productId: string | null;
+
   // Outputs
   tryOnResult: YouCamTryOnResult | null;
   skinAnalysisResult: YouCamSkinAnalysisResult | null;
@@ -73,6 +77,7 @@ export interface AnalysisState {
   }>;
 
   // Actions
+  setSessionId: (id: string | null) => void;
   setSelfie: (url: string, fileId?: string) => void;
   setProduct: (data: {
     url: string;
@@ -183,6 +188,9 @@ export const useAnalysisStore = create<AnalysisState>()(
       analysisStage: "idle",
       errorMessage: null,
 
+      sessionId: null,
+      productId: null,
+
       tryOnResult: null,
       skinAnalysisResult: null,
       decisionResult: null,
@@ -210,6 +218,8 @@ export const useAnalysisStore = create<AnalysisState>()(
           verdict: "Recommended",
         },
       ],
+
+      setSessionId: (id) => set({ sessionId: id }),
 
       setSelfie: (url, fileId) =>
         set({ selfieUrl: url, selfieFileId: fileId ?? null, errorMessage: null }),
