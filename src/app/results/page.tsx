@@ -1,21 +1,20 @@
 import type { Metadata } from "next";
+import { Navigation, Footer } from "@/components/navigation";
+import ResultsClient from "./results-client";
 
 export const metadata: Metadata = {
-  title: "Results",
-  description: "Your purchase confidence score and detailed product analysis.",
+  title: "Analysis Results",
+  description: "Your MirrorIQ Purchase Confidence Score and visual decision analysis.",
 };
 
 export default function ResultsPage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
-      <div className="max-w-lg text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
-          Results
-        </h1>
-        <p className="mt-4 text-neutral-500">
-          Purchase confidence score and detailed analysis will be displayed here.
-        </p>
-      </div>
-    </main>
+    <div className="min-h-screen flex flex-col bg-white text-neutral-900 selection:bg-neutral-900 selection:text-white">
+      <Navigation />
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <ResultsClient />
+      </main>
+      <Footer />
+    </div>
   );
 }

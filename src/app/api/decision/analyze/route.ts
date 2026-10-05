@@ -3,8 +3,8 @@ import { z } from "zod";
 import { getDecisionClient } from "@/lib/api/decision";
 
 const requestSchema = z.object({
-  skinAnalysis: z.record(z.string(), z.unknown()),
-  tryOnResult: z.record(z.string(), z.unknown()),
+  skinAnalysis: z.record(z.string(), z.unknown()).nullish(),
+  tryOnResult: z.record(z.string(), z.unknown()).nullish(),
   productInfo: z.object({
     name: z.string().min(1),
     category: z.string().min(1),
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(result);
   } catch (error) {
-    console.error("Decision analysis error:", error);
+    console.error("[api/decision/analyze] Error:", error);
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500 },

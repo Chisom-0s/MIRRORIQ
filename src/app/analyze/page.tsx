@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
+import { Navigation, Footer } from "@/components/navigation";
+import AnalyzeClient from "./analyze-client";
 
 export const metadata: Metadata = {
-  title: "Analyze",
-  description: "Upload your selfie and select a product to begin your purchase analysis.",
+  title: "Analyze Product",
+  description:
+    "Upload your portrait and product to generate real virtual try-on simulation and MirrorIQ purchase confidence analysis.",
 };
 
 export default function AnalyzePage() {
   return (
-    <main className="flex flex-1 flex-col items-center justify-center px-6 py-24">
-      <div className="max-w-lg text-center">
-        <h1 className="text-3xl font-semibold tracking-tight text-neutral-900">
-          Start Your Analysis
-        </h1>
-        <p className="mt-4 text-neutral-500">
-          Upload a selfie and select a product to see how it works for you.
-        </p>
-      </div>
-    </main>
+    <div className="min-h-screen flex flex-col bg-neutral-950 text-white selection:bg-white selection:text-neutral-950">
+      <Navigation />
+      <main className="flex-1 flex flex-col justify-center py-10 sm:py-16 px-4 sm:px-6 lg:px-8">
+        <AnalyzeClient />
+      </main>
+      <Footer />
+    </div>
   );
 }
