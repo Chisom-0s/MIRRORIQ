@@ -1,34 +1,51 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getYouCamClient, YouCamApiError } from "@/lib/api/youcam";
+import {
+  getTask,
+  youCamFeatureSchema,
+  YouCamError,
+} from "@/lib/youcam";
 
 export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ taskId: string }> },
+  request: NextRequest,
+  context: { params: Promise<{ taskId: string }> },
 ) {
   try {
-    const { taskId } = await params;
+    const { taskId } = await context.params;
 
     if (!taskId) {
       return NextResponse.json(
-        { error: "taskId parameter is required" },
+        {
+          error: {
+            code: "invalid_request",
+            message: "taskId parameter is required",
+            retryable: false,
+          },
+        },
         { status: 400 },
       );
     }
 
-    const client = getYouCamClient();
-    const result = await client.getTaskStatus(taskId);
+    const searchParams = request.nextUrl.searchParams;
+    const rawFeature = searchParams.get("feature");
+    const featureParsed = youCamFeatureSchema.safeParse(rawFeature ?? "skin-analysis");
+    const feature = featureParsed.success ? featureParsed.data : "skin-analysis";
+
+    const result = await getTask(feature, taskId);
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof YouCamApiError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode },
-      );
+    if (error instanceof YouCamError) {
+      return NextResponse.json({ error: error.toJSON() }, { status: error.httpStatus });
     }
-    console.error("Task status error:", error);
+    console.error("[api/youcam/task] Unexpected error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: {
+          code: "unknown",
+          message: error instanceof Error ? error.message : "Internal server error",
+          retryable: false,
+        },
+      },
       { status: 500 },
     );
   }

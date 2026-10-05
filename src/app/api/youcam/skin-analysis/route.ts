@@ -1,37 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  createSkinAnalysisTask,
+  skinAnalysisActionSchema,
+  YouCamError,
+} from "@/lib/youcam";
 import { z } from "zod";
-import { getYouCamClient, YouCamApiError } from "@/lib/api/youcam";
 
-const requestSchema = z.object({
-  imageId: z.string().min(1, "imageId is required"),
+const bodySchema = z.object({
+  fileId: z.string().min(1, "fileId is required"),
+  actions: z.array(skinAnalysisActionSchema).min(1).max(7).optional(),
 });
 
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
-    const parsed = requestSchema.safeParse(body);
+    const rawBody: unknown = await request.json();
+    const parsed = bodySchema.safeParse(rawBody);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: parsed.error.flatten().fieldErrors },
+        {
+          error: {
+            code: "invalid_request",
+            message: "Invalid skin analysis request body",
+            issues: parsed.error.issues,
+            retryable: false,
+          },
+        },
         { status: 400 },
       );
     }
 
-    const client = getYouCamClient();
-    const result = await client.startSkinAnalysis(parsed.data.imageId);
+    const result = await createSkinAnalysisTask(
+      parsed.data.fileId,
+      parsed.data.actions,
+    );
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof YouCamApiError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode },
-      );
+    if (error instanceof YouCamError) {
+      return NextResponse.json({ error: error.toJSON() }, { status: error.httpStatus });
     }
-    console.error("Skin analysis error:", error);
+    console.error("[api/youcam/skin-analysis] Unexpected error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: {
+          code: "unknown",
+          message: error instanceof Error ? error.message : "Internal server error",
+          retryable: false,
+        },
+      },
       { status: 500 },
     );
   }

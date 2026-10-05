@@ -6,7 +6,7 @@ import { z } from "zod";
  */
 const serverEnvSchema = z.object({
   YOUCAM_API_KEY: z.string().min(1, "YOUCAM_API_KEY is required"),
-  YOUCAM_API_SECRET: z.string().min(1, "YOUCAM_API_SECRET is required"),
+  YOUCAM_API_SECRET: z.string().min(1).optional(),
   YOUCAM_API_BASE_URL: z.string().url("YOUCAM_API_BASE_URL must be a valid URL"),
   // Optional until the phases that use them
   ANTHROPIC_API_KEY: z.string().min(1).optional(),

@@ -1,39 +1,48 @@
 import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { getYouCamClient, YouCamApiError } from "@/lib/api/youcam";
-
-const requestSchema = z.object({
-  selfieImageId: z.string().min(1, "selfieImageId is required"),
-  productImageId: z.string().min(1, "productImageId is required"),
-  category: z.string().min(1, "category is required"),
-});
+import {
+  createTryOnTask,
+  tryOnRequestSchema,
+  YouCamError,
+} from "@/lib/youcam";
 
 export async function POST(request: NextRequest) {
   try {
-    const body: unknown = await request.json();
-    const parsed = requestSchema.safeParse(body);
+    const rawBody: unknown = await request.json();
+    const parsed = tryOnRequestSchema.safeParse(rawBody);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request", details: parsed.error.flatten().fieldErrors },
+        {
+          error: {
+            code: "invalid_request",
+            message: "Invalid try-on request body",
+            issues: parsed.error.issues,
+            retryable: false,
+          },
+        },
         { status: 400 },
       );
     }
 
-    const client = getYouCamClient();
-    const result = await client.startTryOn(parsed.data);
+    const result = await createTryOnTask(
+      parsed.data.fileId,
+      parsed.data.effects,
+    );
 
     return NextResponse.json(result);
   } catch (error) {
-    if (error instanceof YouCamApiError) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: error.statusCode },
-      );
+    if (error instanceof YouCamError) {
+      return NextResponse.json({ error: error.toJSON() }, { status: error.httpStatus });
     }
-    console.error("Try-on error:", error);
+    console.error("[api/youcam/try-on] Unexpected error:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      {
+        error: {
+          code: "unknown",
+          message: error instanceof Error ? error.message : "Internal server error",
+          retryable: false,
+        },
+      },
       { status: 500 },
     );
   }
