@@ -24,11 +24,15 @@ export interface ProductAlternative {
 
 export interface DecisionResult {
   confidenceScore: number;
-  verdict: "recommended" | "neutral" | "not-recommended";
+  verdict?: "recommended" | "neutral" | "not-recommended";
+  recommendation: "BUY" | "CONSIDER" | "SKIP" | string;
+  recommendationDisclaimer?: string;
   headline: string;
   summary: string;
+  strengths: string[];
+  tradeoffs: string[];
+  recommendationExplanation?: string;
   factors: AnalysisFactor[];
-  recommendation: string;
   alternatives: ProductAlternative[];
 }
 
@@ -113,9 +117,22 @@ export const SAMPLE_PRODUCT = {
 export const SAMPLE_DECISION: DecisionResult = {
   confidenceScore: 91,
   verdict: "recommended",
+  recommendation: "BUY",
+  recommendationDisclaimer:
+    "MirrorIQ recommends BUY based on the available visual signals and compatibility metrics.",
   headline: "High Purchase Confidence — Exceptional Silhouette & Color Synergy",
   summary:
     "The tailored shoulder structure and warm camel hue create balanced contrast with your undertones. Proportions align with your visual profile with negligible return risk.",
+  strengths: [
+    "Warm camel palette enhances natural facial undertones with 94% chromatic alignment.",
+    "Tailored raglan drape elongates neckline and balances shoulder-to-hip proportions.",
+    "Grade-A virgin wool construction provides structured silhouette across multiple seasonal rotations.",
+  ],
+  tradeoffs: [
+    "Structured tailoring requires intentional styling balance when paired with casual streetwear.",
+  ],
+  recommendationExplanation:
+    "MirrorIQ recommends BUY based on the available visual signals, with a composite purchase confidence rating of 91/100.",
   factors: [
     {
       label: "Color & Undertone Harmony",
@@ -142,8 +159,6 @@ export const SAMPLE_DECISION: DecisionResult = {
       description: "Pairs seamlessly across formal tailoring, denim essentials, and evening silhouettes.",
     },
   ],
-  recommendation:
-    "Highly Recommended. This piece strongly enhances your visual frame. The high score indicates a product you will wear frequently with minimal post-purchase hesitation.",
   alternatives: [
     {
       id: "alt-1",

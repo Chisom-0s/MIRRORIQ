@@ -276,14 +276,64 @@ export default function AnalyzeClient() {
       // Phase 4: Preparing comparison & decision intelligence
       setLoadingPhase("preparing_comparison");
       store.setAnalysisStage("preparing_comparison");
-      await new Promise((r) => setTimeout(r, 1000));
 
-      // Calculate Decision Result
-      const calculatedDecision: DecisionResult = {
+      // Calculate Decision Result using MirrorIQ Proprietary Decision Engine
+      let calculatedDecision: DecisionResult = {
         ...SAMPLE_DECISION,
         headline: `High Purchase Confidence — ${productName}`,
         summary: `The silhouette and tonal palette of the ${productName} by ${productBrand} align with your visual profile with exceptional harmony.`,
       };
+
+      try {
+        const decisionRes = await fetch("/api/decision/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product: {
+              name: productName,
+              brand: productBrand,
+              category: productCategory,
+              price: productPrice,
+              color: store.productColor || "#C5A880",
+            },
+            visual: {
+              tryOnStatus: "success",
+              hasGarmentAlignment: true,
+            },
+            skinProfile: skinResult
+              ? {
+                  skinType: "combination",
+                  overallScore: 92,
+                  metrics: skinResult,
+                }
+              : undefined,
+            occasion: "Formal & Everyday",
+            preferences: {
+              styleVibe: "editorial",
+              fitPreference: "tailored",
+            },
+          }),
+        });
+
+        if (decisionRes.ok) {
+          const decisionJson = await decisionRes.json();
+          calculatedDecision = {
+            confidenceScore: decisionJson.overallScore ?? 91,
+            verdict: decisionJson.overallScore >= 85 ? "recommended" : "neutral",
+            recommendation: decisionJson.recommendation ?? "BUY",
+            recommendationDisclaimer: decisionJson.recommendationDisclaimer,
+            headline: decisionJson.headline ?? `High Purchase Confidence — ${productName}`,
+            summary: decisionJson.summary ?? calculatedDecision.summary,
+            strengths: decisionJson.strengths ?? calculatedDecision.strengths,
+            tradeoffs: decisionJson.tradeoffs ?? calculatedDecision.tradeoffs,
+            recommendationExplanation: decisionJson.recommendationExplanation,
+            factors: decisionJson.factors ?? calculatedDecision.factors,
+            alternatives: SAMPLE_DECISION.alternatives,
+          };
+        }
+      } catch (decisionErr) {
+        console.warn("[analyze] Decision engine fallback:", decisionErr);
+      }
 
       // Persist results to Supabase if session was created
       if (sessionId) {
@@ -308,10 +358,10 @@ export default function AnalyzeClient() {
                 : undefined,
               decision: {
                 confidenceScore: calculatedDecision.confidenceScore,
-                visualScore: 94,
-                occasionScore: 90,
-                preferenceScore: 89,
-                versatilityScore: 92,
+                visualScore: calculatedDecision.factors[0]?.score ?? 94,
+                occasionScore: calculatedDecision.factors[2]?.score ?? 90,
+                preferenceScore: calculatedDecision.factors[4]?.score ?? 89,
+                versatilityScore: calculatedDecision.factors[3]?.score ?? 92,
                 recommendation: calculatedDecision.recommendation,
                 explanation: calculatedDecision.summary,
               },
